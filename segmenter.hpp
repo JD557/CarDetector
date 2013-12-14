@@ -15,6 +15,9 @@ struct CarImage {
 	vector<KeyPoint> keypoints;
 	Mat keypointDesc;
 	vector<bool> isKeypointCar;
+	/*CarImage& operator=(const CarImage& ci);
+	CarImage();
+	CarImage(const CarImage& ci);*/
 };
 
 struct KeypointKNN {
@@ -38,12 +41,41 @@ class Segmenter {
 		Mat virtual apply(Mat image) = 0;
 };
 
-class SIFTKNNSegmenter:protected Segmenter {
+class KNNSegmenter:public Segmenter {
 	public:
-		SIFTKNNSegmenter();
-		void train(vector<CarImage> trainSet);
 		Mat apply(Mat image);
+		void train(vector<CarImage> trainSet);
 };
 
+class SIFTKNNSegmenter:public KNNSegmenter {
+	public:
+		SIFTKNNSegmenter();
+};
+
+class SURFKNNSegmenter:public KNNSegmenter {
+	public:
+		SURFKNNSegmenter();
+};
+
+class BOWSegmenter:public Segmenter {
+	protected:
+		Ptr<DescriptorMatcher> matcher;
+		Ptr<BOWKMeansTrainer> bowTrainer;
+		Ptr<BOWImgDescriptorExtractor> bowExtractor;
+		Mat vocabulary;
+	public:
+		Mat apply(Mat image);
+		void train(vector<CarImage> trainSet);
+};
+
+class SIFTBOWSegmenter:public BOWSegmenter {
+	public:
+		SIFTBOWSegmenter();
+};
+
+class SURFBOWSegmenter:public BOWSegmenter {
+	public:
+		SURFBOWSegmenter();
+};
 
 #endif
