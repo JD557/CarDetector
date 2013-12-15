@@ -11,6 +11,7 @@
 using namespace cv;
 
 struct CarImage {
+	string imageName;
 	Mat image;
 	vector<Mat> masks;
 	vector<KeyPoint> keypoints;
@@ -60,5 +61,17 @@ class FASTBOWSegmenter:public BOWSegmenter {
 	public:
 		FASTBOWSegmenter();
 };
+
+class HarrisBOWSegmenter:public BOWSegmenter {
+	public:
+		HarrisBOWSegmenter();
+};
+
+class STARBOWSegmenter:public BOWSegmenter {
+	public:
+		STARBOWSegmenter();
+};
+
+
 
 #endif

@@ -10,8 +10,8 @@ using namespace cv;
 
 #define SVM_ITER_LIMIT 50000
 #define IMG_PATCH_SIZE 256
-#define WORD_COUNT 500
-#define WIN_SLIDE 128
+#define WORD_COUNT 1000
+#define WIN_SLIDE 32
 
 bool fileExists(string filename) {
 	ifstream file(filename.c_str());
@@ -210,4 +210,24 @@ FASTBOWSegmenter::FASTBOWSegmenter() {
 	bowExtractor = new BOWImgDescriptorExtractor(extractor, matcher);
 	svmFilename = "models/fastsvm.xml";
 	bowFilename = "models/fastbow.xml";
+}
+
+HarrisBOWSegmenter::HarrisBOWSegmenter() {
+	detector = FeatureDetector::create("HARRIS");
+	extractor = DescriptorExtractor::create("SIFT");
+	matcher = DescriptorMatcher::create("BruteForce");
+	bowTrainer = new BOWKMeansTrainer(WORD_COUNT, TermCriteria(), 1, KMEANS_PP_CENTERS);
+	bowExtractor = new BOWImgDescriptorExtractor(extractor, matcher);
+	svmFilename = "models/harrissvm.xml";
+	bowFilename = "models/harrisbow.xml";
+}
+
+STARBOWSegmenter::STARBOWSegmenter() {
+	detector = FeatureDetector::create("STAR");
+	extractor = DescriptorExtractor::create("SIFT");
+	matcher = DescriptorMatcher::create("BruteForce");
+	bowTrainer = new BOWKMeansTrainer(WORD_COUNT, TermCriteria(), 1, KMEANS_PP_CENTERS);
+	bowExtractor = new BOWImgDescriptorExtractor(extractor, matcher);
+	svmFilename = "models/starsvm.xml";
+	bowFilename = "models/starbow.xml";
 }
