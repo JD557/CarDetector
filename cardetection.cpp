@@ -6,6 +6,7 @@
 #include <string>
 #include <fstream>
 #include "segmenter.hpp"
+#include "ensemble.hpp"
 using namespace std;
 using namespace cv;
 
@@ -46,28 +47,57 @@ int main() {
 	vector<CarImage> trainSet;
 	vector<CarImage> testSet;
 	for (size_t i=0;i<dataSet.size();++i) {
-		if (i<dataSet.size()*0.1) {trainSet.push_back(dataSet[i]);}
+		if (i<0.5*dataSet.size()) {trainSet.push_back(dataSet[i]);}
 		else {testSet.push_back(dataSet[i]);}
 	}
-
-	//SIFTKNNSegmenter siftknn;
-	//siftknn.train(trainSet);
-
-	//SURFKNNSegmenter surfknn;
-	//surfknn.train(trainSet);
 
 	SIFTBOWSegmenter siftbow;
 	siftbow.train(trainSet);
 
+	SURFBOWSegmenter surfbow;
+	surfbow.train(trainSet);
+
+	FASTBOWSegmenter fastbow;
+	fastbow.train(trainSet);
+
+	vector<Segmenter*> models;
+	models.push_back(&siftbow);
+	models.push_back(&surfbow);
+	models.push_back(&fastbow);
+
+	MajorityVoter voter(models);
+
 	for (int i=0;i<testSet.size();++i) {
+		stringstream id;
+		id << "results/" << i;
 		Mat original = testSet[i].image;
-		Mat mask = siftbow.apply(original);
-		Mat extracted;
-		original.copyTo(extracted,mask);
 		imshow("Original", original);
-		imshow("Mask", mask);
-		imshow("extracted", extracted);
-		waitKey(0);
+		imwrite(id.str()+" Original.png",original);
+
+		Mat maskSift = siftbow.apply(original);
+		Mat extractedSift;
+		original.copyTo(extractedSift,maskSift);
+		imshow("Extracted - SIFT", extractedSift);
+		imwrite(id.str()+" SIFT.png",extractedSift);
+
+		Mat maskSurf = surfbow.apply(original);
+		Mat extractedSurf;
+		original.copyTo(extractedSurf,maskSurf);
+		imshow("Extracted - SURF", extractedSurf);
+		imwrite(id.str()+" SURF.png",extractedSurf);
+
+		Mat maskFast = fastbow.apply(original);
+		Mat extractedFast;
+		original.copyTo(extractedFast,maskFast);
+		imshow("Extracted - FAST", extractedFast);
+		imwrite(id.str()+" FAST.png",extractedFast);
+
+		Mat maskMaj = voter.apply(original);
+		Mat extractedMaj;
+		original.copyTo(extractedMaj,maskMaj);
+		imshow("Extracted - Majority", extractedMaj);
+		imwrite(id.str()+" Majority.png",extractedMaj);
+		waitKey(1000);
 	}
 
 	waitKey(0);

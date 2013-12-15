@@ -1,41 +1,27 @@
 #include "segmenter.hpp"
+#include <fstream>
 #include <iostream>
 #include <cmath>
 #include <queue>
+#include <opencv2/core/core.hpp>
+#include <opencv2/highgui/highgui.hpp>
 using namespace std;
 using namespace cv;
 
-#define SVM_ITER_LIMIT 10000
-#define IMG_PATCH_SIZE 128
-#define WORD_COUNT 200
-#define WIN_SLIDE 32
-#define KNN_K 3
-bool operator<(const KeypointKNN a,const KeypointKNN b) {
-	return a.dist>b.dist;
-}
+#define SVM_ITER_LIMIT 50000
+#define IMG_PATCH_SIZE 256
+#define WORD_COUNT 500
+#define WIN_SLIDE 128
 
-/*CarImage::CarImage() {}
-
-CarImage::CarImage(const CarImage& ci) {
-	this->image         = ci.image.clone();
-	for (size_t i=0;i<ci.masks.size();++i) {
-		this->masks.push_back(ci.masks[i].clone());
+bool fileExists(string filename) {
+	ifstream file(filename.c_str());
+	if (file.is_open()) {
+		file.close();
+		return true;
 	}
-	this->keypoints     = ci.keypoints;
-	this->keypointDesc  = ci.keypointDesc.clone();
-	this->isKeypointCar = ci.isKeypointCar;
+	file.close();
+	return false;
 }
-
-CarImage& CarImage::operator=(const CarImage& ci) {
-	this->image         = ci.image.clone();
-	for (size_t i=0;i<ci.masks.size();++i) {
-		this->masks.push_back(ci.masks[i].clone());
-	}
-	this->keypoints     = ci.keypoints;
-	this->keypointDesc  = ci.keypointDesc.clone();
-	this->isKeypointCar = ci.isKeypointCar;
-	return *this;
-}*/
 
 void Segmenter::findKeyPoints() {
 	cout << "Finding KeyPoints..." << endl;
@@ -60,100 +46,9 @@ void Segmenter::setKeyPointLabels() {
 			}
 			trainSet[i].isKeypointCar.push_back(isCar);
 		}
+
 	}
 	cout << "DONE" << endl;
-}
-
-// KNN
-
-void KNNSegmenter::train(vector<CarImage> trainSet) {
-	this->trainSet=trainSet;
-	findKeyPoints();
-	setKeyPointLabels();
-
-	Mat trainFeatures(0,0,CV_32F);
-	Mat trainLabels(0,1,CV_32F);
-	for (size_t i=0;i<this->trainSet.size();++i) {
-		CarImage img = this->trainSet[i];
-		Mat responses(img.isKeypointCar.size(),1,CV_32F);
-		for (size_t j=0;j<img.isKeypointCar.size();++j) {
-			responses.at<float>(j) = img.isKeypointCar[j]?1.0:0.0;
-		}
-		trainFeatures.push_back(img.keypointDesc);
-		trainLabels.push_back(responses);
-	}
-	cout << "Training SVM..." << endl;
-	//classifier.train(trainFeatures,trainLabels);
-	Mat varIdx;
-	Mat samIdx;
-	CvSVMParams params;
-	params.term_crit = cvTermCriteria( CV_TERMCRIT_ITER+CV_TERMCRIT_EPS, SVM_ITER_LIMIT, FLT_EPSILON );
-
-	classifier.train(trainFeatures,trainLabels,varIdx,samIdx,params);
-	cout << "DONE" << endl;
-}
-
-Mat KNNSegmenter::apply(Mat image) {
-	cout << "Classifying KeyPoints..." << endl;
-	CarImage img;
-	img.image = image.clone();
-	detector->detect(img.image,img.keypoints);
-	extractor->compute(img.image,img.keypoints,img.keypointDesc);
-	Mat results;
-	//classifier.predict(img.keypointDesc,results);
-	//cout << "KEYPOINTS:" << img.keypoints.size() << endl;
-	//cout << "DESCRIPTIONS:" << img.keypointDesc.rows << endl;
-	//double sum=0;
-	for (size_t i=0;i<img.keypoints.size();++i) {
-		//img.isKeypointCar.push_back(results.at<float>(i)==1.0);
-		//sum+=results.at<float>(i);
-		img.isKeypointCar.push_back(classifier.predict(img.keypointDesc.row(i))==1.0);
-	}
-	//cout << "RESULTS:" << results.rows << " " << img.isKeypointCar.size() << endl;
-	//cout << "SUM:" << sum << endl;
-	cout << "DONE" << endl;
-
-	Mat finalImage = image.clone();
-	/*cout << "Applying KNN..." << endl;
-	// KNN
-	for (size_t y=0;y<image.rows;++y) {
-		for (size_t x=0;x<image.cols;++x) {
-			priority_queue<KeypointKNN> points;
-
-			for (size_t i=0;i<img.keypoints.size();++i) {
-				Point pt = img.keypoints[i].pt;
-				double dist = (x-pt.x)*(x-pt.x)+(y-pt.y)*(y-pt.y);
-				KeypointKNN kp;
-				kp.dist = dist;
-				kp.value = img.isKeypointCar[i];
-				points.push(kp);
-			}
-			size_t trueVotes=0;
-			size_t falseVotes=0;
-			for (size_t i=0;i<KNN_K && points.size()>0;++i) {
-				points.top().value?trueVotes++:falseVotes++;
-				points.pop();
-			}
-			image.at<Vec3b>(y,x)[(trueVotes>falseVotes)?1:2]=255;
-		}
-	}*/
-
-	for (size_t i=0;i<img.keypoints.size();++i) {
-		bool isCar = img.isKeypointCar[i];
-		circle(finalImage,img.keypoints[i].pt,5,isCar?Scalar(0,255,0):Scalar(0,0,255),2);
-	}
-	cout << "DONE" << endl;
-	return finalImage;
-}
-
-SIFTKNNSegmenter::SIFTKNNSegmenter() {
-	detector = FeatureDetector::create("SIFT");
-	extractor = DescriptorExtractor::create("SIFT");
-}
-
-SURFKNNSegmenter::SURFKNNSegmenter() {
-	detector = FeatureDetector::create("SURF");
-	extractor = DescriptorExtractor::create("SURF");
 }
 
 // BOW
@@ -163,69 +58,83 @@ void BOWSegmenter::train(vector<CarImage> trainSet) {
 	this->trainSet=trainSet;
 	findKeyPoints();
 	setKeyPointLabels();
-    
-    for (size_t i=0;i<this->trainSet.size();++i) {
-        bowTrainer->add(this->trainSet[i].keypointDesc);
-    }
-    vocabulary = bowTrainer->cluster();
-    bowExtractor->setVocabulary(vocabulary);
-    cout << "DONE" << endl;
+	
+	if (fileExists(bowFilename)) {
+		FileStorage fs; 
+		fs.open(bowFilename, FileStorage::READ);
+		fs["Vocabulary"] >> vocabulary;
+		fs.release();
 
-    cout << "Extracting Patch Features" << endl;
+	}
+	else {
+		for (size_t i=0;i<this->trainSet.size();++i) {
+			bowTrainer->add(this->trainSet[i].keypointDesc);
+		}
+		cout << "Clustering... " << endl;
+		vocabulary = bowTrainer->cluster();
+		cout << "DONE" << endl;
+		FileStorage fs; 
+		fs.open(bowFilename, FileStorage::WRITE);
+		fs << "Vocabulary" << vocabulary ;
+		fs.release();
+	}
 
-    Mat trainFeatures;
-    Mat trainLabels;
+	bowExtractor->setVocabulary(vocabulary);
+	cout << "DONE" << endl;
+	// Checks if SVM is already trained
+	if (fileExists(svmFilename)) {
+		classifier.load(svmFilename.c_str());
+	}
+	else {
 
+		cout << "Extracting Patch Features" << endl;
 
-    for (size_t i=0;i<this->trainSet.size();++i) {
-    	// Get number of patches
-		size_t patchesW = (this->trainSet[i].image.cols-1)/IMG_PATCH_SIZE + 1;
-		size_t patchesH = (this->trainSet[i].image.rows-1)/IMG_PATCH_SIZE + 1;
+		Mat trainFeatures;
+		Mat trainLabels;
 
-		// Update patch size
-		size_t patchW = this->trainSet[i].image.cols/patchesW;
-		size_t patchH = this->trainSet[i].image.rows/patchesH;
-
-		// Train patches
-		for (size_t y=0;y+patchH<=this->trainSet[i].image.rows;y+=WIN_SLIDE) {
-			for (size_t x=0;x+patchW<=this->trainSet[i].image.cols;x+=WIN_SLIDE) {
-				Mat patch = this->trainSet[i].image(Rect(x,y,patchW,patchH));
-				vector<KeyPoint> kp;
-				bool hasCar = false;
-				for (size_t j=0;j<this->trainSet[i].keypoints.size();++j) {
-					Point pt = this->trainSet[i].keypoints[j].pt;
-					if (pt.x>=x && pt.y>=y && pt.x<x+patchW && pt.y<y+patchH) {
-						kp.push_back(this->trainSet[i].keypoints[j]);
-						if (this->trainSet[i].isKeypointCar[j]) {
-							hasCar=true;
-						}
-					}
+		for (size_t i=0;i<this->trainSet.size();++i) {
+			cout << i+1 << "/" << this->trainSet.size() << endl;
+			vector<KeyPoint> carPoints;
+			vector<KeyPoint> noncarPoints;
+			for (size_t j=0;j<this->trainSet[i].keypoints.size();++j) {
+				bool isCar = this->trainSet[i].isKeypointCar[j];
+				if (isCar) {
+					carPoints.push_back(this->trainSet[i].keypoints[j]);
 				}
-				Mat hist;
-				detector->detect(patch,kp);
-				bowExtractor->compute(patch,kp,hist);
-				if (hist.rows>0) {
-					trainFeatures.push_back(hist);
-					trainLabels.push_back(hasCar?1.0:0.0);
+				else {
+					noncarPoints.push_back(this->trainSet[i].keypoints[j]);
 				}
 			}
+			Mat histCar;
+			bowExtractor->compute(this->trainSet[i].image,carPoints,histCar);
+			if (histCar.rows>0) {
+				trainFeatures.push_back(histCar);
+				trainLabels.push_back(1.0);
+			}
+			Mat histNoncar;
+			bowExtractor->compute(this->trainSet[i].image,noncarPoints,histNoncar);
+			if (histNoncar.rows>0) {
+				trainFeatures.push_back(histNoncar);
+				trainLabels.push_back(0.0);
+			}
 		}
-    }
-	cout << "DONE" << endl;
+		cout << "DONE" << endl;
 
-	cout << "Training SVM..." << endl;
-	Mat varIdx;
-	Mat samIdx;
-	CvSVMParams params;
-	params.term_crit = cvTermCriteria( CV_TERMCRIT_ITER+CV_TERMCRIT_EPS, SVM_ITER_LIMIT, FLT_EPSILON );
+		cout << "Training SVM..." << endl;
+		Mat varIdx;
+		Mat samIdx;
+		CvSVMParams params;
+		params.term_crit = cvTermCriteria( CV_TERMCRIT_ITER+CV_TERMCRIT_EPS, SVM_ITER_LIMIT, FLT_EPSILON );
 
-	Mat trainFeatures_32f;
-	Mat trainLabels_32f;
-	trainFeatures.convertTo(trainFeatures_32f, CV_32F);
-	trainLabels.convertTo(trainLabels_32f, CV_32F);
+		Mat trainFeatures_32f;
+		Mat trainLabels_32f;
+		trainFeatures.convertTo(trainFeatures_32f, CV_32F);
+		trainLabels.convertTo(trainLabels_32f, CV_32F);
 
-	classifier.train(trainFeatures_32f,trainLabels_32f,varIdx,samIdx,params);
-	cout << "DONE" << endl;
+		classifier.train_auto(trainFeatures_32f,trainLabels_32f,varIdx,samIdx,params);
+		classifier.save(svmFilename.c_str());
+		cout << "DONE" << endl;
+	}
 
 }
 
@@ -238,7 +147,7 @@ Mat BOWSegmenter::apply(Mat image) {
 	}
 	bowExtractor->setVocabulary(vocabulary);
 
-    cout << "Extracting Patch Features" << endl;
+	cout << "Extracting Patch Features" << endl;
 
 	// Get number of patches
 	size_t patchesW = (image.cols-1)/IMG_PATCH_SIZE + 1;
@@ -276,15 +185,29 @@ Mat BOWSegmenter::apply(Mat image) {
 SIFTBOWSegmenter::SIFTBOWSegmenter() {
 	detector = FeatureDetector::create("SIFT");
 	extractor = DescriptorExtractor::create("SIFT");
-	matcher = DescriptorMatcher::create("FlannBased");
+	matcher = DescriptorMatcher::create("BruteForce");
 	bowTrainer = new BOWKMeansTrainer(WORD_COUNT, TermCriteria(), 1, KMEANS_PP_CENTERS);
 	bowExtractor = new BOWImgDescriptorExtractor(detector, matcher);
+	svmFilename = "models/siftsvm.xml";
+	bowFilename = "models/siftbow.xml";
 }
 
 SURFBOWSegmenter::SURFBOWSegmenter() {
 	detector = FeatureDetector::create("SURF");
 	extractor = DescriptorExtractor::create("SURF");
-	matcher = DescriptorMatcher::create("FlannBased");
+	matcher = DescriptorMatcher::create("BruteForce");
 	bowTrainer = new BOWKMeansTrainer(WORD_COUNT, TermCriteria(), 1, KMEANS_PP_CENTERS);
 	bowExtractor = new BOWImgDescriptorExtractor(extractor, matcher);
+	svmFilename = "models/surfsvm.xml";
+	bowFilename = "models/surfbow.xml";
+}
+
+FASTBOWSegmenter::FASTBOWSegmenter() {
+	detector = FeatureDetector::create("FAST");
+	extractor = DescriptorExtractor::create("SURF");
+	matcher = DescriptorMatcher::create("BruteForce");
+	bowTrainer = new BOWKMeansTrainer(WORD_COUNT, TermCriteria(), 1, KMEANS_PP_CENTERS);
+	bowExtractor = new BOWImgDescriptorExtractor(extractor, matcher);
+	svmFilename = "models/fastsvm.xml";
+	bowFilename = "models/fastbow.xml";
 }

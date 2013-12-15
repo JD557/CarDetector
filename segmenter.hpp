@@ -7,6 +7,7 @@
 #include <opencv2/nonfree/nonfree.hpp>
 #include <opencv2/nonfree/features2d.hpp>
 #include <opencv2/ml/ml.hpp>
+#include <string>
 using namespace cv;
 
 struct CarImage {
@@ -15,17 +16,7 @@ struct CarImage {
 	vector<KeyPoint> keypoints;
 	Mat keypointDesc;
 	vector<bool> isKeypointCar;
-	/*CarImage& operator=(const CarImage& ci);
-	CarImage();
-	CarImage(const CarImage& ci);*/
 };
-
-struct KeypointKNN {
-	double dist;
-	bool value;
-};
-
-bool operator<(const KeypointKNN a,const KeypointKNN b);
 
 class Segmenter {
 	protected:
@@ -33,6 +24,7 @@ class Segmenter {
 		Ptr<DescriptorExtractor> extractor;
 		vector<CarImage> trainSet;
 		CvSVM classifier;
+		string svmFilename;
 
 		void findKeyPoints();
 		void setKeyPointLabels();
@@ -41,21 +33,6 @@ class Segmenter {
 		Mat virtual apply(Mat image) = 0;
 };
 
-class KNNSegmenter:public Segmenter {
-	public:
-		Mat apply(Mat image);
-		void train(vector<CarImage> trainSet);
-};
-
-class SIFTKNNSegmenter:public KNNSegmenter {
-	public:
-		SIFTKNNSegmenter();
-};
-
-class SURFKNNSegmenter:public KNNSegmenter {
-	public:
-		SURFKNNSegmenter();
-};
 
 class BOWSegmenter:public Segmenter {
 	protected:
@@ -63,6 +40,7 @@ class BOWSegmenter:public Segmenter {
 		Ptr<BOWKMeansTrainer> bowTrainer;
 		Ptr<BOWImgDescriptorExtractor> bowExtractor;
 		Mat vocabulary;
+		string bowFilename;
 	public:
 		Mat apply(Mat image);
 		void train(vector<CarImage> trainSet);
@@ -76,6 +54,11 @@ class SIFTBOWSegmenter:public BOWSegmenter {
 class SURFBOWSegmenter:public BOWSegmenter {
 	public:
 		SURFBOWSegmenter();
+};
+
+class FASTBOWSegmenter:public BOWSegmenter {
+	public:
+		FASTBOWSegmenter();
 };
 
 #endif
