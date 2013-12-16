@@ -9,9 +9,9 @@ using namespace std;
 using namespace cv;
 
 #define SVM_ITER_LIMIT 50000
-#define IMG_PATCH_SIZE 256
+#define IMG_PATCH_SIZE 128
 #define WORD_COUNT 1000
-#define WIN_SLIDE 32
+#define WIN_SLIDE 64
 
 bool fileExists(string filename) {
 	ifstream file(filename.c_str());
